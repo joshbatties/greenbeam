@@ -38,6 +38,7 @@ export default function SubscribeForm({ onSuccess }: SubscribeFormProps) {
     try {
       // Check if email already exists
       const { data: existingUser } = await supabase
+        .schema('greenbeam')
         .from("subscribers")
         .select("email")
         .eq("email", email)
@@ -51,6 +52,7 @@ export default function SubscribeForm({ onSuccess }: SubscribeFormProps) {
 
       // Insert new subscriber
       const { error: insertError } = await supabase
+        .schema('greenbeam')
         .from("subscribers")
         .insert([{ email, status: 'active' }])
 
@@ -66,9 +68,27 @@ export default function SubscribeForm({ onSuccess }: SubscribeFormProps) {
         setIsSubscribed(false)
         setEmail("")
       }, 3000)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error subscribing:", err)
-      setError("Failed to subscribe. Please try again later.")
+
+      // Provide more specific error messages
+      let errorMessage = "Failed to subscribe. Please try again later."
+
+      if (err?.message) {
+        if (err.message.includes("JWT")) {
+          errorMessage = "Authentication error. Please refresh the page and try again."
+        } else if (err.message.includes("duplicate key")) {
+          errorMessage = "You're already subscribed to our newsletter!"
+        } else if (err.message.includes("permission denied")) {
+          errorMessage = "Permission error. Please contact support."
+        } else if (err.message.includes("relation") && err.message.includes("does not exist")) {
+          errorMessage = "Database configuration error. Please contact support."
+        } else {
+          errorMessage = `Subscription error: ${err.message}`
+        }
+      }
+
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
